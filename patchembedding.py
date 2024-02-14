@@ -26,12 +26,13 @@ class PatchEmbedding(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1,1,embedding))
 
         # Position embedding에서 +1이 되는 이유는 cls token 때문이다.
+        # 그냥 randn으로 Position encoding을 해도 되는가..?? 
         self.postions = nn.Parameter(torch.randn(self.patch_num+1, self.embedding))
 
         self.projection = nn.Sequential(
             # con2d말고도 Linear로 출력값을 맞출 수 있다. 하지만, con2d가 성능이 더 좋다고 말한다.
-            nn.Conv2d(in_channel, embedding, kernel_size=patch_size, stride=patch_size),
-            Rearrange('b e h w -> b (h w) e') # 변환하는게 약하다. 보완하기!!!!!!!!!!!!!
+            nn.Conv2d(in_channels= self.in_channel, out_channels= self.embedding, kernel_size=self.patch_size, stride=self.patch_size),
+            Rearrange('b e h w -> b (h w) e'), # 변환하는게 약하다. 보완하기!!!!!!!!!!!!!
         )
         # Linear 층이다.
         # self.projection = nn.Sequential(
@@ -43,20 +44,15 @@ class PatchEmbedding(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         x = self.projection(x)
         #### Add cls token 
+        # class token의 shape은 (1, 1, embedding) 
+        # 이는 사진 한개 당 embedding 차원의 학습파라미터로 훈련을 진행한다. 
         cls_tokens = repeat(self.cls_token,'() n e -> b n e', b = x.shape[0])
         # print(x.shape) # torch.Size([1000, 196, 768])
         x = torch.cat([cls_tokens, x], dim=1)
         # print(x.shape) # torch.Size([1000, 197, 768])
         
         #### Add Position Embedding  
-        print(self.postions.shape)
         # 텐서끼리 더할때 행과 열이 일치한다면 예상과 동일하게 더하기를 진행한다. 
         x += self.postions 
         return x
-
-
-
-
-x = PatchEmbedding()(x)
-# print(x.shape)
 
